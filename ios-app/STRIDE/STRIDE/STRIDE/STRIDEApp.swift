@@ -1,11 +1,19 @@
+//
+//  STRIDEApp.swift
+//  STRIDE
+//
+//  Created by Giritharan Chockalingam on 3/17/26.
+//
+
 import SwiftUI
-import HealthKit
 
 @main
 struct STRIDEApp: App {
     @StateObject private var authManager = AuthManager()
     @StateObject private var healthKitManager = HealthKitManager()
     @StateObject private var supabaseManager = SupabaseManager()
+
+    @Environment(\.scenePhase) var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -18,7 +26,7 @@ struct STRIDEApp: App {
 
                     ActivityView()
                         .tabItem {
-                            Label("Activity", systemImage: "chart.bar.fill")
+                            Label("Activity", systemImage: "figure.run")
                         }
 
                     WorkoutView()
@@ -28,7 +36,7 @@ struct STRIDEApp: App {
 
                     LeaderboardView()
                         .tabItem {
-                            Label("Leaderboard", systemImage: "list.number")
+                            Label("Leaderboard", systemImage: "trophy.fill")
                         }
 
                     ProfileView()
@@ -36,45 +44,26 @@ struct STRIDEApp: App {
                             Label("Profile", systemImage: "person.fill")
                         }
                 }
-                .preferredColorScheme(.dark)
+                .accentColor(Color(hex: "FC4C02"))
                 .environmentObject(authManager)
                 .environmentObject(healthKitManager)
                 .environmentObject(supabaseManager)
                 .onAppear {
-                    requestHealthKitPermissions()
-                    syncHealthDataOnAppear()
+                    healthKitManager.requestAuthorization()
                 }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-                    syncHealthDataOnAppear()
+                .onChange(of: scenePhase) { oldPhase, newPhase in
+                    if newPhase == .active {
+                        Task {
+                            await healthKitManager.syncToSupabase(
+                                token: authManager.accessToken ?? "",
+                                userId: authManager.userId ?? ""
+                            )
+                        }
+                    }
                 }
             } else {
                 LoginView()
-                    .preferredColorScheme(.dark)
                     .environmentObject(authManager)
-            }
-        }
-    }
-
-    private func requestHealthKitPermissions() {
-        healthKitManager.requestAuthorization { success, error in
-            if success {
-                print("HealthKit authorization granted")
-            } else if let error = error {
-                print("HealthKit authorization failed: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    private func syncHealthDataOnAppear() {
-        guard authManager.isAuthenticated, let userId = authManager.userId, let token = authManager.accessToken else {
-            return
-        }
-
-        healthKitManager.syncToSupabase(token: token, userId: userId) { success, error in
-            if success {
-                print("HealthKit data synced successfully")
-            } else if let error = error {
-                print("HealthKit sync failed: \(error.localizedDescription)")
             }
         }
     }
