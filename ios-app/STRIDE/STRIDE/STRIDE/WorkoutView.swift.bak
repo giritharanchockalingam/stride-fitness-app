@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import Combine
 
 struct WorkoutView: View {
     @EnvironmentObject var supabaseManager: SupabaseManager
