@@ -11,160 +11,265 @@ import AuthenticationServices
 struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
 
-    @State private var email: String = ""
-    @State private var password: String = ""
-    @State private var isLoading = false
+    @State private var isSignUp = false
+    @State private var email = ""
+    @State private var password = ""
+    @State private var fullName = ""
+    @State private var showPassword = false
 
     var body: some View {
         ZStack {
-            Color(hex: "0a0a0a").ignoresSafeArea()
+            Config.Colors.darkBackground.ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: 40) {
-                    VStack(spacing: 12) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 48))
-                            .foregroundColor(.white)
-                            .padding(16)
-                            .background(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        Color(hex: "FC4C02"),
-                                        Color(hex: "FF6B35")
-                                    ]),
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .cornerRadius(12)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 32) {
+                    Spacer().frame(height: 40)
 
-                        Text("STRIDE")
-                            .font(.system(size: 32, weight: .bold))
-                            .foregroundColor(.white)
-
-                        Text("Achieve Your Goals")
-                            .font(.system(size: 14, weight: .regular))
-                            .foregroundColor(.gray)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 20)
-
+                    // Logo & Branding
                     VStack(spacing: 16) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Email")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.white)
-
-                            TextField("Enter your email", text: $email)
-                                .textInputAutocapitalization(.never)
-                                .keyboardType(.emailAddress)
-                                .padding(12)
-                                .background(Color(hex: "141414"))
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color(hex: "2C2C2E"), lineWidth: 1)
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Config.Colors.primaryOrange, Config.Colors.orangeGradient],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
+                                .frame(width: 80, height: 80)
+                                .shadow(color: Config.Colors.primaryOrange.opacity(0.4), radius: 20, y: 8)
+
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 36, weight: .bold))
                                 .foregroundColor(.white)
                         }
+
+                        Text("STRIDE")
+                            .font(.system(size: 36, weight: .black))
+                            .foregroundColor(.white)
+                            .tracking(2)
+
+                        Text("Track. Compete. Achieve.")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.bottom, 8)
+
+                    // Tab Toggle
+                    HStack(spacing: 0) {
+                        tabButton(title: "Sign In", isSelected: !isSignUp) { isSignUp = false }
+                        tabButton(title: "Sign Up", isSelected: isSignUp) { isSignUp = true }
+                    }
+                    .background(Config.Colors.cardBackground)
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Config.Colors.borderColor, lineWidth: 1)
+                    )
+
+                    // Form Fields
+                    VStack(spacing: 16) {
+                        if isSignUp {
+                            formField(
+                                label: "Full Name",
+                                icon: "person.fill",
+                                placeholder: "Enter your name",
+                                text: $fullName,
+                                isSecure: false
+                            )
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+
+                        formField(
+                            label: "Email",
+                            icon: "envelope.fill",
+                            placeholder: "Enter your email",
+                            text: $email,
+                            isSecure: false,
+                            keyboardType: .emailAddress
+                        )
 
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Password")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(.white)
 
-                            SecureField("Enter your password", text: $password)
-                                .padding(12)
-                                .background(Color(hex: "141414"))
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color(hex: "2C2C2E"), lineWidth: 1)
-                                )
-                                .foregroundColor(.white)
+                            HStack(spacing: 12) {
+                                Image(systemName: "lock.fill")
+                                    .foregroundColor(.gray)
+                                    .frame(width: 20)
+
+                                if showPassword {
+                                    TextField("Enter your password", text: $password)
+                                        .textInputAutocapitalization(.never)
+                                        .foregroundColor(.white)
+                                } else {
+                                    SecureField("Enter your password", text: $password)
+                                        .foregroundColor(.white)
+                                }
+
+                                Button(action: { showPassword.toggle() }) {
+                                    Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                                        .foregroundColor(.gray)
+                                        .font(.system(size: 14))
+                                }
+                            }
+                            .padding(14)
+                            .background(Config.Colors.cardBackground)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Config.Colors.borderColor, lineWidth: 1)
+                            )
                         }
                     }
+                    .animation(.easeInOut(duration: 0.25), value: isSignUp)
 
-                    VStack(spacing: 12) {
-                        Button(action: {
-                            isLoading = true
-                            Task {
-                                await authManager.signIn(email: email, password: password)
-                                isLoading = false
-                            }
-                        }) {
-                            if isLoading {
+                    // Error Message
+                    if let error = authManager.errorMessage {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 14))
+                            Text(error)
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundColor(Color(hex: "FF6B6B"))
+                        .padding(12)
+                        .frame(maxWidth: .infinity)
+                        .background(Color(hex: "FF6B6B").opacity(0.1))
+                        .cornerRadius(10)
+                    }
+
+                    // Primary Action Button
+                    Button(action: { performAuth() }) {
+                        Group {
+                            if authManager.isLoading {
                                 ProgressView()
                                     .tint(.white)
                             } else {
-                                Text("Sign In")
-                                    .font(.system(size: 16, weight: .semibold))
+                                Text(isSignUp ? "Create Account" : "Sign In")
+                                    .font(.system(size: 16, weight: .bold))
                                     .foregroundColor(.white)
                             }
                         }
                         .frame(maxWidth: .infinity)
-                        .frame(height: 50)
+                        .frame(height: 54)
                         .background(
                             LinearGradient(
-                                gradient: Gradient(colors: [
-                                    Color(hex: "FC4C02"),
-                                    Color(hex: "FF6B35")
-                                ]),
+                                colors: [Config.Colors.primaryOrange, Config.Colors.orangeGradient],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
-                        .cornerRadius(8)
-                        .disabled(isLoading || email.isEmpty || password.isEmpty)
-
-                        if let error = authManager.errorMessage {
-                            Text(error)
-                                .font(.system(size: 12, weight: .regular))
-                                .foregroundColor(.red)
-                                .multilineTextAlignment(.center)
-                        }
+                        .cornerRadius(14)
+                        .shadow(color: Config.Colors.primaryOrange.opacity(0.3), radius: 12, y: 6)
                     }
+                    .disabled(authManager.isLoading || !isFormValid)
+                    .opacity(isFormValid ? 1.0 : 0.6)
 
-                    HStack {
-                        VStack(alignment: .center) {
-                            Divider()
-                                .background(Color(hex: "2C2C2E"))
-                        }
-
+                    // Divider
+                    HStack(spacing: 16) {
+                        Rectangle().frame(height: 1).foregroundColor(Config.Colors.borderColor)
                         Text("or")
-                            .font(.system(size: 14, weight: .regular))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.gray)
-
-                        VStack(alignment: .center) {
-                            Divider()
-                                .background(Color(hex: "2C2C2E"))
-                        }
+                        Rectangle().frame(height: 1).foregroundColor(Config.Colors.borderColor)
                     }
 
-                    Button(action: {
-                        authManager.startGoogleOAuth()
-                    }) {
+                    // Google OAuth
+                    Button(action: { authManager.startGoogleOAuth() }) {
                         HStack(spacing: 12) {
                             Image(systemName: "globe")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 18, weight: .semibold))
                             Text("Continue with Google")
                                 .font(.system(size: 16, weight: .semibold))
                         }
                         .frame(maxWidth: .infinity)
-                        .frame(height: 50)
+                        .frame(height: 54)
                         .foregroundColor(.white)
-                        .background(Color(hex: "141414"))
-                        .cornerRadius(8)
+                        .background(Config.Colors.cardBackground)
+                        .cornerRadius(14)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color(hex: "2C2C2E"), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(Config.Colors.borderColor, lineWidth: 1)
                         )
                     }
 
-                    Spacer()
+                    Spacer(minLength: 40)
                 }
                 .padding(.horizontal, 24)
-                .padding(.vertical, 40)
+            }
+        }
+    }
+
+    // MARK: - Subviews
+
+    private func tabButton(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(isSelected ? .white : .gray)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(isSelected ? Config.Colors.primaryOrange : Color.clear)
+                .cornerRadius(10)
+        }
+        .padding(3)
+    }
+
+    private func formField(
+        label: String,
+        icon: String,
+        placeholder: String,
+        text: Binding<String>,
+        isSecure: Bool,
+        keyboardType: UIKeyboardType = .default
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white)
+
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .foregroundColor(.gray)
+                    .frame(width: 20)
+
+                if isSecure {
+                    SecureField(placeholder, text: text)
+                        .foregroundColor(.white)
+                } else {
+                    TextField(placeholder, text: text)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(keyboardType)
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(14)
+            .background(Config.Colors.cardBackground)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Config.Colors.borderColor, lineWidth: 1)
+            )
+        }
+    }
+
+    // MARK: - Helpers
+
+    private var isFormValid: Bool {
+        if isSignUp {
+            return !email.isEmpty && !password.isEmpty && !fullName.isEmpty && password.count >= 6
+        }
+        return !email.isEmpty && !password.isEmpty
+    }
+
+    private func performAuth() {
+        Task {
+            if isSignUp {
+                await authManager.signUp(email: email, password: password, fullName: fullName)
+            } else {
+                await authManager.signIn(email: email, password: password)
             }
         }
     }

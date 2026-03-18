@@ -11,236 +11,297 @@ struct LeaderboardView: View {
     @EnvironmentObject var supabaseManager: SupabaseManager
     @EnvironmentObject var authManager: AuthManager
 
-    @State private var leaderboardData: [[String: Any]] = []
+    @State private var leaderboardData: [LeaderboardEntry] = []
     @State private var selectedPeriod: LeaderboardPeriod = .weekly
     @State private var selectedMetric: LeaderboardMetric = .steps
-    @State private var userRank: Int = 0
+    @State private var isLoading = true
 
     var body: some View {
         ZStack {
-            Color(hex: "0a0a0a").ignoresSafeArea()
+            Config.Colors.darkBackground.ignoresSafeArea()
 
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
-                    periodSelector()
-
-                    metricSelector()
+                    headerSection
+                    periodPills
+                    metricPills
 
                     if leaderboardData.count >= 3 {
-                        podium()
+                        podiumSection
                     }
 
-                    rankedList()
+                    rankingsList
                 }
                 .padding(16)
+                .padding(.bottom, 20)
             }
         }
-        .onAppear {
-            Task {
-                await loadLeaderboard()
-            }
-        }
+        .task { await loadLeaderboard() }
+        .onChange(of: selectedPeriod) { _, _ in Task { await loadLeaderboard() } }
+        .onChange(of: selectedMetric) { _, _ in /* re-sort client side */ }
     }
 
-    private func periodSelector() -> some View {
+    // MARK: - Header
+
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Leaderboard")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundColor(.white)
+            Text("Compete with the community")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Period Pills
+
+    private var periodPills: some View {
         HStack(spacing: 8) {
             ForEach(LeaderboardPeriod.allCases, id: \.self) { period in
-                Button(action: { selectedPeriod = period }) {
-                    Text(period.label)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(
-                            selectedPeriod == period ? .white : .gray
-                        )
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            selectedPeriod == period ?
-                            Color(hex: "FC4C02") :
-                            Color(hex: "141414")
-                        )
-                        .cornerRadius(8)
+                pillButton(title: period.label, isSelected: selectedPeriod == period) {
+                    withAnimation { selectedPeriod = period }
                 }
             }
             Spacer()
         }
     }
 
-    private func metricSelector() -> some View {
+    // MARK: - Metric Pills
+
+    private var metricPills: some View {
         HStack(spacing: 8) {
             ForEach(LeaderboardMetric.allCases, id: \.self) { metric in
-                Button(action: { selectedMetric = metric }) {
-                    Text(metric.label)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(
-                            selectedMetric == metric ? .white : .gray
-                        )
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            selectedMetric == metric ?
-                            Color(hex: "FC4C02") :
-                            Color(hex: "141414")
-                        )
-                        .cornerRadius(8)
+                pillButton(title: metric.label, isSelected: selectedMetric == metric) {
+                    withAnimation { selectedMetric = metric }
                 }
             }
             Spacer()
         }
     }
 
-    private func podium() -> some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .bottom, spacing: 12) {
-                podiumPlace(
-                    rank: 2,
-                    medal: "🥈",
-                    name: (leaderboardData[1]["name"] as? String) ?? "User 2",
-                    value: getDisplayValue(for: leaderboardData[1]),
-                    height: 120
+    private func pillButton(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(isSelected ? .white : .gray)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
+                .background(isSelected ? Config.Colors.primaryOrange : Config.Colors.cardBackground)
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(isSelected ? Color.clear : Config.Colors.borderColor, lineWidth: 1)
                 )
-
-                podiumPlace(
-                    rank: 1,
-                    medal: "🥇",
-                    name: (leaderboardData[0]["name"] as? String) ?? "User 1",
-                    value: getDisplayValue(for: leaderboardData[0]),
-                    height: 160
-                )
-
-                podiumPlace(
-                    rank: 3,
-                    medal: "🥉",
-                    name: (leaderboardData[2]["name"] as? String) ?? "User 3",
-                    value: getDisplayValue(for: leaderboardData[2]),
-                    height: 80
-                )
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 24)
         }
     }
 
-    private func podiumPlace(
-        rank: Int,
-        medal: String,
-        name: String,
-        value: String,
-        height: CGFloat
-    ) -> some View {
+    // MARK: - Podium
+
+    private var podiumSection: some View {
+        let sorted = sortedData
+        guard sorted.count >= 3 else { return AnyView(EmptyView()) }
+
+        return AnyView(
+            HStack(alignment: .bottom, spacing: 12) {
+                // 2nd Place
+                podiumColumn(
+                    entry: sorted[1],
+                    rank: 2,
+                    medal: "\u{1F948}",
+                    medalColor: Config.Colors.silver,
+                    barHeight: 100
+                )
+
+                // 1st Place
+                podiumColumn(
+                    entry: sorted[0],
+                    rank: 1,
+                    medal: "\u{1F947}",
+                    medalColor: Config.Colors.gold,
+                    barHeight: 140
+                )
+
+                // 3rd Place
+                podiumColumn(
+                    entry: sorted[2],
+                    rank: 3,
+                    medal: "\u{1F949}",
+                    medalColor: Config.Colors.bronze,
+                    barHeight: 70
+                )
+            }
+            .padding(.horizontal, 8)
+        )
+    }
+
+    private func podiumColumn(entry: LeaderboardEntry, rank: Int, medal: String, medalColor: Color, barHeight: CGFloat) -> some View {
         VStack(spacing: 8) {
             Text(medal)
-                .font(.system(size: 28))
+                .font(.system(size: 32))
 
-            VStack(spacing: 4) {
-                Text(name)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
+            Text(entry.userName ?? "User")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.white)
+                .lineLimit(1)
 
-                Text(value)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(Color(hex: "FC4C02"))
-            }
-            .padding(12)
-            .background(Color(hex: "141414"))
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(hex: "2C2C2E"), lineWidth: 1)
-            )
+            Text(getDisplayValue(for: entry))
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(Config.Colors.primaryOrange)
+
+            RoundedRectangle(cornerRadius: 8)
+                .fill(
+                    LinearGradient(
+                        colors: [medalColor.opacity(0.6), medalColor.opacity(0.2)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(height: barHeight)
+                .overlay(
+                    Text("#\(rank)")
+                        .font(.system(size: 18, weight: .black))
+                        .foregroundColor(.white.opacity(0.5))
+                )
         }
         .frame(maxWidth: .infinity)
-        .frame(height: height)
     }
 
-    private func rankedList() -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+    // MARK: - Rankings List
+
+    private var rankingsList: some View {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Rankings")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(.white)
 
-            VStack(spacing: 8) {
-                ForEach(Array(leaderboardData.enumerated()), id: \.offset) { index, entry in
-                    if let name = entry["name"] as? String {
-                        let isCurrentUser = name == authManager.userEmail
-
-                        HStack(spacing: 12) {
-                            Text("\(index + 1)")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.gray)
-                                .frame(width: 30)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(name)
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .lineLimit(1)
-                            }
-
-                            Spacer()
-
-                            Text(getDisplayValue(for: entry))
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(
-                                    isCurrentUser ? Color(hex: "FC4C02") : .gray
-                                )
-                        }
-                        .padding(12)
-                        .background(
-                            isCurrentUser ?
-                            Color(hex: "141414") :
-                            Color(hex: "0a0a0a")
-                        )
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(
-                                    isCurrentUser ?
-                                    Color(hex: "FC4C02") :
-                                    Color(hex: "2C2C2E"),
-                                    lineWidth: 1
-                                )
-                        )
+            if sortedData.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.gray.opacity(0.3))
+                    Text("No rankings available yet")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
+            } else {
+                VStack(spacing: 6) {
+                    ForEach(Array(sortedData.enumerated()), id: \.offset) { index, entry in
+                        rankRow(entry: entry, rank: index + 1)
                     }
                 }
             }
         }
-        .padding(16)
-        .background(Color(hex: "141414"))
-        .cornerRadius(12)
+        .padding(20)
+        .background(Config.Colors.cardBackground)
+        .cornerRadius(16)
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(hex: "2C2C2E"), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Config.Colors.borderColor, lineWidth: 1)
         )
     }
 
-    private func getDisplayValue(for entry: [String: Any]) -> String {
+    private func rankRow(entry: LeaderboardEntry, rank: Int) -> some View {
+        let isCurrentUser = entry.userId == authManager.userId
+
+        return HStack(spacing: 12) {
+            // Rank badge
+            Text("\(rank)")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(rank <= 3 ? .white : .gray)
+                .frame(width: 28, height: 28)
+                .background(rank <= 3 ? Config.Colors.primaryOrange.opacity(0.8) : Config.Colors.borderColor.opacity(0.5))
+                .cornerRadius(8)
+
+            // Avatar
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: isCurrentUser ? [Config.Colors.primaryOrange, Config.Colors.orangeGradient] : [Config.Colors.borderColor, Config.Colors.cardBackground],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 36, height: 36)
+
+                Text(String((entry.userName ?? "U").prefix(1)).uppercased())
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.userName ?? "User")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                if isCurrentUser {
+                    Text("You")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(Config.Colors.primaryOrange)
+                }
+            }
+
+            Spacer()
+
+            Text(getDisplayValue(for: entry))
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(isCurrentUser ? Config.Colors.primaryOrange : .gray)
+        }
+        .padding(12)
+        .background(isCurrentUser ? Config.Colors.primaryOrange.opacity(0.08) : Color.clear)
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(isCurrentUser ? Config.Colors.primaryOrange.opacity(0.4) : Color.clear, lineWidth: 1)
+        )
+    }
+
+    // MARK: - Helpers
+
+    private var sortedData: [LeaderboardEntry] {
         switch selectedMetric {
         case .steps:
-            return String(entry["steps"] as? Int ?? 0)
+            return leaderboardData.sorted { ($0.totalSteps ?? 0) > ($1.totalSteps ?? 0) }
         case .workouts:
-            return String(entry["workouts"] as? Int ?? 0)
-        case .streak:
-            return String(entry["streak"] as? Int ?? 0)
+            return leaderboardData.sorted { ($0.totalWorkouts ?? 0) > ($1.totalWorkouts ?? 0) }
+        case .distance:
+            return leaderboardData.sorted { ($0.totalDistanceMeters ?? 0) > ($1.totalDistanceMeters ?? 0) }
+        }
+    }
+
+    private func getDisplayValue(for entry: LeaderboardEntry) -> String {
+        switch selectedMetric {
+        case .steps:
+            let steps = entry.totalSteps ?? 0
+            if steps >= 1000 { return "\(steps / 1000)K" }
+            return "\(steps)"
+        case .workouts:
+            return "\(entry.totalWorkouts ?? 0)"
+        case .distance:
+            let km = (entry.totalDistanceMeters ?? 0) / 1000.0
+            return String(format: "%.1f km", km)
         }
     }
 
     private func loadLeaderboard() async {
         guard let token = authManager.accessToken else { return }
-        leaderboardData = await supabaseManager.query(
-            table: "leaderboard",
-            token: token,
-            order: "score.desc",
-            limit: 20
+        isLoading = true
+        leaderboardData = await supabaseManager.fetchLeaderboard(
+            periodType: selectedPeriod.apiValue,
+            token: token
         )
+        isLoading = false
     }
 }
 
+// MARK: - Enums
+
 enum LeaderboardPeriod: CaseIterable {
-    case weekly
-    case monthly
-    case allTime
+    case weekly, monthly, allTime
 
     var label: String {
         switch self {
@@ -249,18 +310,24 @@ enum LeaderboardPeriod: CaseIterable {
         case .allTime: return "All Time"
         }
     }
+
+    var apiValue: String {
+        switch self {
+        case .weekly: return "weekly"
+        case .monthly: return "monthly"
+        case .allTime: return "all_time"
+        }
+    }
 }
 
 enum LeaderboardMetric: CaseIterable {
-    case steps
-    case workouts
-    case streak
+    case steps, workouts, distance
 
     var label: String {
         switch self {
         case .steps: return "Steps"
         case .workouts: return "Workouts"
-        case .streak: return "Streak"
+        case .distance: return "Distance"
         }
     }
 }
