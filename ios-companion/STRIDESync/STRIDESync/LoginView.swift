@@ -1,4 +1,5 @@
 import SwiftUI
+import AuthenticationServices
 
 struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
@@ -93,6 +94,31 @@ struct LoginView: View {
                     }
                     .disabled(authManager.isLoading || email.isEmpty || password.isEmpty)
 
+                    // Divider
+                    HStack {
+                        Rectangle().frame(height: 1).foregroundColor(Color(hex: "2C2C2E"))
+                        Text("or").font(.caption).foregroundColor(.gray)
+                        Rectangle().frame(height: 1).foregroundColor(Color(hex: "2C2C2E"))
+                    }
+
+                    // Google Sign In
+                    Button(action: {
+                        authManager.showGoogleAuth = true
+                    }) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "globe")
+                                .foregroundColor(.white)
+                            Text("Continue with Google")
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(14)
+                        .background(Color(hex: "1A1A1A"))
+                        .foregroundColor(.white)
+                        .cornerRadius(14)
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(hex: "2C2C2E"), lineWidth: 1))
+                    }
+
                     Text("Sign in with the same account you use on stride-fitness-app.vercel.app")
                         .font(.caption2)
                         .foregroundColor(.gray)
@@ -104,6 +130,59 @@ struct LoginView: View {
             }
             .padding(.horizontal, 24)
         }
+        .sheet(isPresented: $authManager.showGoogleAuth) {
+            GoogleOAuthView()
+                .environmentObject(authManager)
+        }
+    }
+}
+
+// Google OAuth via SafariServices + redirect
+struct GoogleOAuthView: UIViewControllerRepresentable {
+    @EnvironmentObject var authManager: AuthManager
+
+    func makeUIViewController(context: Context) -> GoogleOAuthViewController {
+        let vc = GoogleOAuthViewController()
+        vc.authManager = authManager
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: GoogleOAuthViewController, context: Context) {}
+}
+
+class GoogleOAuthViewController: UIViewController {
+    var authManager: AuthManager?
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        guard let authManager = authManager else { return }
+
+        let session = ASWebAuthenticationSession(
+            url: authManager.googleOAuthURL,
+            callbackURLScheme: "com.stride.stridesync"
+        ) { [weak self] callbackURL, error in
+            Task { @MainActor in
+                self?.authManager?.showGoogleAuth = false
+                if let url = callbackURL {
+                    Task { await self?.authManager?.handleOAuthCallback(url: url) }
+                } else if let error = error as? ASWebAuthenticationSessionError,
+                          error.code == .canceledLogin {
+                    // User cancelled — do nothing
+                } else if let error = error {
+                    self?.authManager?.errorMessage = error.localizedDescription
+                }
+            }
+        }
+        session.presentationContextProvider = self
+        session.prefersEphemeralWebBrowserSession = false
+        session.start()
+    }
+}
+
+extension GoogleOAuthViewController: ASWebAuthenticationPresentationContextProviding {
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        view.window ?? ASPresentationAnchor()
     }
 }
 

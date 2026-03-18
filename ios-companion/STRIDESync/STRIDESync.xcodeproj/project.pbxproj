@@ -7,12 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10000001 /* STRIDESyncApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000001; };
-		A10000002 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000002; };
-		A10000003 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000003; };
-		A10000004 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000004; };
-		A10000005 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000005; };
-		A10000006 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000006; };
+		A10000001 /* STRIDESyncApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000001 /* STRIDESyncApp.swift */; };
+		A10000002 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000002 /* LoginView.swift */; };
+		A10000003 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000003 /* MainView.swift */; };
+		A10000004 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000004 /* AuthManager.swift */; };
+		A10000005 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000005 /* HealthKitManager.swift */; };
+		A10000006 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000006 /* Config.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -204,15 +204,17 @@
 				CODE_SIGN_ENTITLEMENTS = STRIDESync/STRIDESync.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = G53HPM9UPG;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = STRIDESync/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "STRIDE Sync";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "STRIDE needs access to your Health data to sync steps, heart rate, workouts, calories, and distance to your fitness dashboard.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "STRIDE may write workout data back to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -222,7 +224,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -233,15 +235,17 @@
 				CODE_SIGN_ENTITLEMENTS = STRIDESync/STRIDESync.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = G53HPM9UPG;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = STRIDESync/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "STRIDE Sync";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "STRIDE needs access to your Health data to sync steps, heart rate, workouts, calories, and distance to your fitness dashboard.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "STRIDE may write workout data back to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -251,7 +255,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};

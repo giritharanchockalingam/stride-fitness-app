@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import AuthenticationServices
 
 class AuthManager: ObservableObject {
     @Published var isAuthenticated = false
@@ -8,6 +9,7 @@ class AuthManager: ObservableObject {
     @Published var userId: String?
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var showGoogleAuth = false
 
     private let tokenKey = "stride_access_token"
     private let emailKey = "stride_user_email"
@@ -64,6 +66,71 @@ class AuthManager: ObservableObject {
             await MainActor.run { errorMessage = error.localizedDescription }
         }
 
+        await MainActor.run { isLoading = false }
+    }
+
+    // Google OAuth URL for Supabase — redirect back to iOS app via custom scheme
+    var googleOAuthURL: URL {
+        let redirectTo = "\(Config.oauthCallbackScheme)://auth-callback"
+        let encoded = redirectTo.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+        return URL(string: "\(Config.supabaseURL)/auth/v1/authorize?provider=google&redirect_to=\(encoded)")!
+    }
+
+    // Handle OAuth callback URL (called after Google sign-in completes)
+    func handleOAuthCallback(url: URL) async {
+        await MainActor.run { isLoading = true; errorMessage = nil }
+
+        // Extract access_token from URL fragment
+        guard let fragment = url.fragment ?? URLComponents(string: url.absoluteString)?.fragment else {
+            // Try query params instead
+            let components = URLComponents(string: url.absoluteString)
+            if let token = components?.queryItems?.first(where: { $0.name == "access_token" })?.value {
+                await fetchUserWithToken(token)
+            } else {
+                await MainActor.run { errorMessage = "Could not extract token from callback"; isLoading = false }
+            }
+            return
+        }
+
+        let params = Dictionary(uniqueKeysWithValues: fragment.split(separator: "&").compactMap { part -> (String, String)? in
+            let kv = part.split(separator: "=", maxSplits: 1)
+            guard kv.count == 2 else { return nil }
+            return (String(kv[0]), String(kv[1]))
+        })
+
+        if let token = params["access_token"] {
+            await fetchUserWithToken(token)
+        } else {
+            await MainActor.run { errorMessage = "No access token in response"; isLoading = false }
+        }
+    }
+
+    private func fetchUserWithToken(_ token: String) async {
+        do {
+            var request = URLRequest(url: URL(string: "\(Config.supabaseURL)/auth/v1/user")!)
+            request.addValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let user = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+
+            guard let uid = user["id"] as? String else {
+                throw NSError(domain: "", code: 0, userInfo: [NSLocalizedDescriptionKey: "Could not get user info"])
+            }
+            let email = user["email"] as? String ?? "Google User"
+
+            await MainActor.run {
+                self.accessToken = token
+                self.userEmail = email
+                self.userId = uid
+                self.isAuthenticated = true
+                UserDefaults.standard.set(token, forKey: tokenKey)
+                UserDefaults.standard.set(email, forKey: emailKey)
+                UserDefaults.standard.set(uid, forKey: userIdKey)
+            }
+        } catch {
+            await MainActor.run { errorMessage = error.localizedDescription }
+        }
         await MainActor.run { isLoading = false }
     }
 

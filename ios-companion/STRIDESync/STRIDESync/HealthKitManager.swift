@@ -70,7 +70,7 @@ class HealthKitManager: ObservableObject {
 
     // MARK: - Full Sync to Supabase
 
-    func syncToSupabase(token: String) async {
+    func syncToSupabase(token: String, userId: String? = nil) async {
         await MainActor.run { isSyncing = true; syncResult = nil }
 
         do {
@@ -158,7 +158,7 @@ class HealthKitManager: ObservableObject {
             }
 
             // Send to Supabase Edge Function
-            let payload: [String: Any] = [
+            var payload: [String: Any] = [
                 "type": "full_sync",
                 "device_info": UIDevice.current.model,
                 "data": [
@@ -167,6 +167,8 @@ class HealthKitManager: ObservableObject {
                     "heart_rate": heartRates
                 ]
             ]
+
+            if let uid = userId { payload["user_id"] = uid }
 
             var request = URLRequest(url: URL(string: Config.healthKitSyncEndpoint)!)
             request.httpMethod = "POST"

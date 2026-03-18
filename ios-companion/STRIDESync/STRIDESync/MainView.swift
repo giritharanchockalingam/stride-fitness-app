@@ -86,7 +86,7 @@ struct MainView: View {
                             VStack(spacing: 12) {
                                 Button(action: {
                                     guard let token = authManager.accessToken else { return }
-                                    Task { await healthKit.syncToSupabase(token: token) }
+                                    Task { await healthKit.syncToSupabase(token: token, userId: authManager.userId) }
                                 }) {
                                     HStack(spacing: 10) {
                                         if healthKit.isSyncing {
