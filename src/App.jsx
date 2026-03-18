@@ -1021,8 +1021,30 @@ const ConnectedApps = ({ userId, token }) => {
     { id: "strava", name: "Strava", icon: "🏃", color: "#FC4C02", desc: "Running, cycling, swimming with GPS routes and heart rate" },
     { id: "google_fit", name: "Google Fit", icon: "💚", color: "#4285F4", desc: "Steps, heart rate, calories from Android & Wear OS" },
     { id: "fitbit", name: "Fitbit", icon: "💙", color: "#00B0B9", desc: "Steps, sleep, heart rate from Fitbit devices" },
-    { id: "apple_health", name: "Apple Health", icon: "❤️", color: "#FF2D55", desc: "Coming soon — via Terra health data bridge" },
+    { id: "apple_health", name: "Apple Health", icon: "❤️", color: "#FF2D55", desc: "Import steps, heart rate, workouts from iPhone Health export" },
   ];
+
+  const [appleImporting, setAppleImporting] = useState(false);
+  const [appleResult, setAppleResult] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleAppleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAppleImporting(true); setAppleResult(null);
+    try {
+      const formData = new FormData();
+      formData.append("user_id", userId);
+      formData.append("file", file);
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/apple-health-import`, { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setAppleResult(data);
+      loadConnections();
+    } catch (err) { setAppleResult({ error: err.message }); }
+    setAppleImporting(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   useEffect(() => {
     loadConnections();
@@ -1110,7 +1132,13 @@ const ConnectedApps = ({ userId, token }) => {
                   )}
                 </div>
                 {isApple ? (
-                  <div style={{ padding: "8px 14px", borderRadius: 10, background: C.bgEl, color: C.text3, fontSize: 12, fontWeight: 500 }}>Soon</div>
+                  <div>
+                    <input ref={fileInputRef} type="file" accept=".xml" onChange={handleAppleImport} style={{ display: "none" }} />
+                    <button onClick={() => fileInputRef.current?.click()} disabled={appleImporting}
+                      style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: connected ? "transparent" : p.color, color: connected ? C.text : "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, border: connected ? `1px solid ${C.bor}` : "none" }}>
+                      {appleImporting ? <><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Importing...</> : connected ? <><RefreshCw size={13} /> Re-import</> : "Import"}
+                    </button>
+                  </div>
                 ) : connected ? (
                   <button onClick={() => syncProvider(p.id)} disabled={syncing[p.id]} style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${C.bor}`, background: "transparent", color: C.text, fontSize: 13, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
                     <RefreshCw size={13} style={syncing[p.id] ? { animation: "spin 1s linear infinite" } : {}} /> Sync
@@ -1124,7 +1152,36 @@ const ConnectedApps = ({ userId, token }) => {
         })}
       </div>
 
-      <div style={{ background: `${C.accB}08`, borderRadius: 14, padding: 16, marginTop: 16, border: `1px solid ${C.accB}20` }}>
+      {/* Apple Health Import Result */}
+      {appleResult && (
+        <div style={{ background: appleResult.error ? `${C.danger}10` : `${C.acc}10`, borderRadius: 14, padding: 16, marginTop: 12, border: `1px solid ${appleResult.error ? C.danger + "30" : C.acc + "30"}` }}>
+          {appleResult.error ? (
+            <div style={{ fontSize: 13, color: C.danger }}>{appleResult.error}</div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.acc, marginBottom: 6 }}>Import Successful!</div>
+              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6 }}>
+                {appleResult.stats_imported} days of daily stats imported<br/>
+                {appleResult.activities_imported} workouts imported<br/>
+                {appleResult.total_records_parsed?.toLocaleString()} health records parsed
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Apple Health Instructions */}
+      <div style={{ background: `${C.danger}08`, borderRadius: 14, padding: 16, marginTop: 12, border: `1px solid ${C.danger}15` }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>Apple Health Import</div>
+        <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6 }}>
+          1. On iPhone: Health app → Profile (top-right) → Export All Health Data<br/>
+          2. Unzip the downloaded file<br/>
+          3. Tap "Import" above and select the <strong style={{ color: C.text }}>export.xml</strong> file<br/>
+          Imports steps, heart rate, calories, distance, and workouts from the last 30 days.
+        </div>
+      </div>
+
+      <div style={{ background: `${C.accB}08`, borderRadius: 14, padding: 16, marginTop: 12, border: `1px solid ${C.accB}20` }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 4 }}>How it works</div>
         <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>
           Connect your fitness apps to automatically import activities, steps, heart rate, and calories into STRIDE. Data syncs on demand when you tap Sync, and all your data stays private in your account.
