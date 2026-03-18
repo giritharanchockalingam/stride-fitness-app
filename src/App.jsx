@@ -1007,6 +1007,133 @@ const LeaderboardScreen = () => {
 // ============================================
 // PROFILE SCREEN (LIVE DATA)
 // ============================================
+// ============================================
+// CONNECTED APPS COMPONENT
+// ============================================
+const EDGE_FN_URL = `${SUPABASE_URL}/functions/v1/fitness-oauth`;
+
+const ConnectedApps = ({ userId, token }) => {
+  const [connectedAccounts, setConnectedAccounts] = useState([]);
+  const [syncing, setSyncing] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  const providers = [
+    { id: "strava", name: "Strava", icon: "🏃", color: "#FC4C02", desc: "Running, cycling, swimming with GPS routes and heart rate" },
+    { id: "google_fit", name: "Google Fit", icon: "💚", color: "#4285F4", desc: "Steps, heart rate, calories from Android & Wear OS" },
+    { id: "fitbit", name: "Fitbit", icon: "💙", color: "#00B0B9", desc: "Steps, sleep, heart rate from Fitbit devices" },
+    { id: "apple_health", name: "Apple Health", icon: "❤️", color: "#FF2D55", desc: "Coming soon — via Terra health data bridge" },
+  ];
+
+  useEffect(() => {
+    loadConnections();
+    // Check URL for newly connected provider
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("connected");
+    if (connected) {
+      window.history.replaceState(null, "", window.location.pathname);
+      loadConnections();
+    }
+  }, []);
+
+  const loadConnections = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${EDGE_FN_URL}/status?user_id=${userId}`);
+      const data = await res.json();
+      setConnectedAccounts(Array.isArray(data) ? data : []);
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
+
+  const connectProvider = (providerId) => {
+    const authUrl = `${EDGE_FN_URL}/${providerId.replace("_", "-")}/auth?user_id=${userId}`;
+    window.location.href = authUrl;
+  };
+
+  const syncProvider = async (providerId) => {
+    setSyncing(s => ({ ...s, [providerId]: true }));
+    try {
+      const res = await fetch(`${EDGE_FN_URL}/${providerId.replace("_", "-")}/sync?user_id=${userId}`);
+      const data = await res.json();
+      await loadConnections();
+    } catch (e) { console.error(e); }
+    setSyncing(s => ({ ...s, [providerId]: false }));
+  };
+
+  const syncAll = async () => {
+    setSyncing({ all: true });
+    try {
+      await fetch(`${EDGE_FN_URL}/sync-all?user_id=${userId}`);
+      await loadConnections();
+    } catch (e) { console.error(e); }
+    setSyncing({});
+  };
+
+  const isConnected = (providerId) => connectedAccounts.some(a => a.provider === providerId);
+  const getAccount = (providerId) => connectedAccounts.find(a => a.provider === providerId);
+
+  if (loading) return <Loading text="Loading connections..." />;
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>Connected Apps</div>
+          <div style={{ fontSize: 12, color: C.text2 }}>{connectedAccounts.length} connected</div>
+        </div>
+        {connectedAccounts.length > 0 && (
+          <button onClick={syncAll} disabled={syncing.all} style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${C.pri}30`, background: `${C.pri}10`, color: C.pri, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            <RefreshCw size={14} style={syncing.all ? { animation: "spin 1s linear infinite" } : {}} /> Sync All
+          </button>
+        )}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {providers.map(p => {
+          const connected = isConnected(p.id);
+          const account = getAccount(p.id);
+          const isApple = p.id === "apple_health";
+          return (
+            <div key={p.id} style={{ background: C.bgCard, borderRadius: 16, padding: 18, border: `1px solid ${connected ? p.color + "30" : C.bor}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", background: `${p.color}15`, fontSize: 24, flexShrink: 0 }}>
+                  {p.icon}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 16, fontWeight: 600, color: C.text }}>{p.name}</span>
+                    {connected && <span style={{ fontSize: 10, fontWeight: 600, color: C.acc, background: `${C.acc}15`, padding: "2px 8px", borderRadius: 6 }}>Connected</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.text2, marginTop: 2 }}>{p.desc}</div>
+                  {connected && account?.last_sync_at && (
+                    <div style={{ fontSize: 11, color: C.text3, marginTop: 4 }}>Last synced: {timeAgo(account.last_sync_at)}</div>
+                  )}
+                </div>
+                {isApple ? (
+                  <div style={{ padding: "8px 14px", borderRadius: 10, background: C.bgEl, color: C.text3, fontSize: 12, fontWeight: 500 }}>Soon</div>
+                ) : connected ? (
+                  <button onClick={() => syncProvider(p.id)} disabled={syncing[p.id]} style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${C.bor}`, background: "transparent", color: C.text, fontSize: 13, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                    <RefreshCw size={13} style={syncing[p.id] ? { animation: "spin 1s linear infinite" } : {}} /> Sync
+                  </button>
+                ) : (
+                  <button onClick={() => connectProvider(p.id)} style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: p.color, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Connect</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ background: `${C.accB}08`, borderRadius: 14, padding: 16, marginTop: 16, border: `1px solid ${C.accB}20` }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 4 }}>How it works</div>
+        <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>
+          Connect your fitness apps to automatically import activities, steps, heart rate, and calories into STRIDE. Data syncs on demand when you tap Sync, and all your data stays private in your account.
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ProfileScreen = ({ onLogout }) => {
   const { token, user, profile, refreshProfile } = useAuth();
   const [achievementsData, setAchievementsData] = useState([]);
@@ -1092,7 +1219,7 @@ const ProfileScreen = ({ onLogout }) => {
 
       {/* Tabs */}
       <div style={{ display: "flex", background: C.bgCard, borderRadius: 12, padding: 4, marginBottom: 20, border: `1px solid ${C.bor}` }}>
-        {["achievements","stats","settings"].map(t => (
+        {["achievements","apps","stats","settings"].map(t => (
           <button key={t} onClick={() => setActiveTab(t)} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, textTransform: "capitalize", background: activeTab===t?C.pri:"transparent", color: activeTab===t?"#fff":C.text2 }}>{t}</button>
         ))}
       </div>
@@ -1118,6 +1245,9 @@ const ProfileScreen = ({ onLogout }) => {
           </div>
         </div>
       )}
+
+      {/* Connected Apps */}
+      {activeTab === "apps" && <ConnectedApps userId={user.id} token={token} />}
 
       {/* Stats */}
       {activeTab === "stats" && (
