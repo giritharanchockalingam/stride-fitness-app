@@ -236,7 +236,6 @@ const AuthScreen = ({ onAuth }) => {
         const data = await supabase.signUp(email, password, fullName);
         if (data.error) throw new Error(data.error.message || data.error_description || "Sign up failed");
         if (data.access_token) {
-          // Auto-seed demo data for new user
           try { await supabase.rpc("seed_demo_data_for_user", { p_user_id: data.user.id }, data.access_token); } catch (e) { console.log("Seed skipped:", e); }
           onAuth(data);
         } else {
@@ -252,92 +251,126 @@ const AuthScreen = ({ onAuth }) => {
     setLoading(false);
   };
 
+  const features = [
+    { icon: Activity, label: "Activity Tracking", desc: "Steps, heart rate, calories & real-time health metrics" },
+    { icon: Dumbbell, label: "Workout Plans", desc: "Custom routines, guided sessions, difficulty progression" },
+    { icon: Target, label: "Goal Setting", desc: "Personal targets, streaks, progress visualization" },
+    { icon: Users, label: "Social Community", desc: "Friends, challenges, leaderboards & shared achievements" },
+  ];
+
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" }}>
-      {/* Logo */}
-      <div style={{ marginBottom: 40, textAlign: "center" }}>
-        <div style={{ width: 72, height: 72, borderRadius: 20, background: `linear-gradient(135deg, ${C.pri}, ${C.priL})`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", boxShadow: `0 8px 32px ${C.pri}40` }}>
-          <Zap size={36} color="#fff" />
+    <div style={{ minHeight: "100vh", display: "flex", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" }}>
+      {/* Left Panel */}
+      <div className="stride-login-left" style={{
+        display: "none", width: "50%", background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%)",
+        color: "#fff", flexDirection: "column", justifyContent: "space-between", padding: 48, position: "relative", overflow: "hidden"
+      }}>
+        <style>{`@media (min-width: 1024px) { .stride-login-left { display: flex !important; } }`}</style>
+        <div style={{ position: "absolute", top: -100, right: -100, width: 400, height: 400, background: "rgba(252,76,2,0.06)", borderRadius: "50%", filter: "blur(80px)" }} />
+        <div style={{ position: "absolute", bottom: -100, left: -100, width: 300, height: 300, background: "rgba(99,102,241,0.06)", borderRadius: "50%", filter: "blur(80px)" }} />
+        <div style={{ position: "relative", zIndex: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+            <div style={{ background: "#FC4C02", width: 44, height: 44, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Zap size={22} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 700 }}>STRIDE</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>Your fitness journey starts here</div>
+            </div>
+          </div>
         </div>
-        <div style={{ fontSize: 32, fontWeight: 800, color: C.text, letterSpacing: -1 }}>STRIDE</div>
-        <div style={{ fontSize: 14, color: C.text2, marginTop: 4 }}>Your fitness journey starts here</div>
-      </div>
-
-      {/* Form Card */}
-      <div style={{ width: "100%", maxWidth: 380, background: C.bgCard, borderRadius: 24, padding: 28, border: `1px solid ${C.bor}` }}>
-        <div style={{ fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 4 }}>{mode === "login" ? "Welcome Back" : "Create Account"}</div>
-        <div style={{ fontSize: 14, color: C.text2, marginBottom: 24 }}>{mode === "login" ? "Sign in to continue your streak" : "Join the community"}</div>
-
-        {error && <div style={{ background: `${C.danger}15`, border: `1px solid ${C.danger}30`, borderRadius: 12, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: C.danger }}>{error}</div>}
-
-        <form onSubmit={handleSubmit}>
-          {mode === "signup" && (
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 13, color: C.text2, marginBottom: 6, display: "block" }}>Full Name</label>
-              <div style={{ display: "flex", alignItems: "center", background: C.bgInput, borderRadius: 12, border: `1px solid ${C.bor}`, padding: "0 14px" }}>
-                <User size={16} color={C.text3} />
-                <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Enter your name" required
-                  style={{ flex: 1, background: "transparent", border: "none", padding: "12px 10px", color: C.text, fontSize: 15, outline: "none" }} />
+        <div style={{ position: "relative", zIndex: 10, display: "flex", flexDirection: "column", gap: 24 }}>
+          {features.map((f, i) => (
+            <div key={i} style={{ display: "flex", gap: 16 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <f.icon size={20} color="#FC4C02" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>{f.label}</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{f.desc}</div>
               </div>
             </div>
-          )}
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 13, color: C.text2, marginBottom: 6, display: "block" }}>Email</label>
-            <div style={{ display: "flex", alignItems: "center", background: C.bgInput, borderRadius: 12, border: `1px solid ${C.bor}`, padding: "0 14px" }}>
-              <Mail size={16} color={C.text3} />
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required
-                style={{ flex: 1, background: "transparent", border: "none", padding: "12px 10px", color: C.text, fontSize: 15, outline: "none" }} />
-            </div>
-          </div>
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ fontSize: 13, color: C.text2, marginBottom: 6, display: "block" }}>Password</label>
-            <div style={{ display: "flex", alignItems: "center", background: C.bgInput, borderRadius: 12, border: `1px solid ${C.bor}`, padding: "0 14px" }}>
-              <Lock size={16} color={C.text3} />
-              <input type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 characters" required minLength={6}
-                style={{ flex: 1, background: "transparent", border: "none", padding: "12px 10px", color: C.text, fontSize: 15, outline: "none" }} />
-              <button type="button" onClick={() => setShowPw(!showPw)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                {showPw ? <EyeOff size={16} color={C.text3} /> : <Eye size={16} color={C.text3} />}
-              </button>
-            </div>
-          </div>
-          <button type="submit" disabled={loading} style={{
-            width: "100%", padding: "14px", borderRadius: 14, border: "none", cursor: loading ? "wait" : "pointer",
-            background: loading ? C.text3 : `linear-gradient(135deg, ${C.pri}, ${C.priL})`,
-            color: "#fff", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            boxShadow: loading ? "none" : `0 4px 16px ${C.pri}40`,
-          }}>
-            {loading && <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />}
-            {mode === "login" ? "Sign In" : "Create Account"}
-          </button>
-        </form>
-
-        {/* Divider */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
-          <div style={{ flex: 1, height: 1, background: C.bor }} />
-          <span style={{ fontSize: 13, color: C.text3 }}>or</span>
-          <div style={{ flex: 1, height: 1, background: C.bor }} />
+          ))}
         </div>
-
-        {/* Google OAuth */}
-        <button onClick={() => supabase.signInWithGoogle()} style={{
-          width: "100%", padding: "13px", borderRadius: 14, border: `1px solid ${C.bor}`,
-          background: C.bgInput, color: C.text, fontSize: 15, fontWeight: 600,
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-          cursor: "pointer", transition: "background 0.2s",
-        }}>
-          <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-          Continue with Google
-        </button>
-
-        <div style={{ textAlign: "center", marginTop: 20 }}>
-          <span style={{ fontSize: 14, color: C.text2 }}>{mode === "login" ? "Don't have an account? " : "Already have an account? "}</span>
-          <button onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); }}
-            style={{ background: "none", border: "none", color: C.pri, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
-            {mode === "login" ? "Sign Up" : "Sign In"}
-          </button>
+        <div style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 20 }}>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>&copy; 2026 Giritharan Chockalingam. All rights reserved.</div>
         </div>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } } input::placeholder { color: ${C.text3}; }`}</style>
+
+      {/* Right Panel */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 32, background: "#ffffff" }}>
+        <div style={{ width: "100%", maxWidth: 400 }}>
+          <div className="stride-mobile-brand" style={{ textAlign: "center", marginBottom: 32 }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: "linear-gradient(135deg, #FC4C02, #FF6B35)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+              <Zap size={28} color="#fff" />
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>STRIDE</div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+            <Lock size={20} color="#2563eb" />
+            <div style={{ fontSize: 22, fontWeight: 700, color: "#111827" }}>{mode === "login" ? "Sign in" : "Create account"}</div>
+          </div>
+
+          {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#b91c1c" }}>{error}</div>}
+
+          <form onSubmit={handleSubmit}>
+            {mode === "signup" && (
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6, display: "block" }}>Full Name</label>
+                <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Enter your name" required
+                  style={{ width: "100%", padding: "12px 16px", border: "1px solid #d1d5db", borderRadius: 12, fontSize: 15, outline: "none", color: "#111827", background: "#fff", boxSizing: "border-box" }} />
+              </div>
+            )}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6, display: "block" }}>Email</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" required
+                style={{ width: "100%", padding: "12px 16px", border: "1px solid #d1d5db", borderRadius: 12, fontSize: 15, outline: "none", color: "#111827", background: "#fff", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6, display: "block" }}>Password</label>
+              <div style={{ display: "flex", alignItems: "center", border: "1px solid #d1d5db", borderRadius: 12, background: "#fff" }}>
+                <input type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 characters" required minLength={6}
+                  style={{ flex: 1, padding: "12px 16px", border: "none", borderRadius: 12, fontSize: 15, outline: "none", color: "#111827", background: "transparent" }} />
+                <button type="button" onClick={() => setShowPw(!showPw)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 12px" }}>
+                  {showPw ? <EyeOff size={16} color="#9ca3af" /> : <Eye size={16} color="#9ca3af" />}
+                </button>
+              </div>
+            </div>
+            <button type="submit" disabled={loading} style={{
+              width: "100%", padding: 14, borderRadius: 12, border: "none", cursor: loading ? "wait" : "pointer",
+              background: loading ? "#9ca3af" : "#2563eb", color: "#fff", fontSize: 16, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+            }}>
+              {loading && <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />}
+              {mode === "login" ? "Sign In" : "Create Account"}
+            </button>
+          </form>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
+            <div style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
+            <span style={{ fontSize: 13, color: "#9ca3af" }}>or</span>
+            <div style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
+          </div>
+
+          <button onClick={() => supabase.signInWithGoogle()} style={{
+            width: "100%", padding: 13, borderRadius: 12, border: "1px solid #d1d5db",
+            background: "#fff", color: "#374151", fontSize: 15, fontWeight: 600,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 10, cursor: "pointer"
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            Continue with Google
+          </button>
+
+          <div style={{ textAlign: "center", marginTop: 20 }}>
+            <span style={{ fontSize: 14, color: "#6b7280" }}>{mode === "login" ? "No account? " : "Already have an account? "}</span>
+            <button onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); }}
+              style={{ background: "none", border: "none", color: "#2563eb", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+              {mode === "login" ? "Create one" : "Sign in"}
+            </button>
+          </div>
+        </div>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } } input::placeholder { color: #9ca3af; }`}</style>
     </div>
   );
 };
